@@ -16,3 +16,6 @@ __pycache__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Uploaded PDF
+uploaded_document.pdf
