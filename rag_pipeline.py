@@ -22,12 +22,16 @@ def answer_question(question, chat_history=None):
     # -----------------------------------
     # 1. Convert question into embedding
     # -----------------------------------
-    query_embedding = create_embeddings([question])[0]
+
+    query_embedding = create_embeddings(
+        [question]
+    )[0]
 
 
     # -----------------------------------
     # 2. Retrieve relevant chunks
     # -----------------------------------
+
     results = search_documents(
         query_embedding,
         n_results=3
@@ -35,27 +39,58 @@ def answer_question(question, chat_history=None):
 
 
     # -----------------------------------
-    # 3. Combine retrieved chunks
+    # 3. Get documents and metadata
     # -----------------------------------
+
+    documents = results["documents"][0]
+    metadatas = results["metadatas"][0]
+
+
+    # -----------------------------------
+    # 4. Combine chunks with their sources
+    # -----------------------------------
+
+    context_parts = []
+
+    for document, metadata in zip(
+        documents,
+        metadatas
+    ):
+
+        filename = metadata["filename"]
+
+        context_parts.append(
+            f"""
+SOURCE: {filename}
+
+CONTENT:
+{document}
+"""
+        )
+
+
     context = "\n\n".join(
-        results["documents"][0]
+        context_parts
     )
 
 
+    # -----------------------------------
     # Debug: show retrieved context
-    print("\n--- RETRIEVED CONTEXT ---")
+    # -----------------------------------
+
+    print("\n--- RETRIEVED CONTEXT WITH SOURCES ---")
     print(context)
     print("--- END CONTEXT ---\n")
 
 
     # -----------------------------------
-    # 4. Create prompt for Gemini
+    # 5. Create prompt for Gemini
     # -----------------------------------
-    prompt = f"""
-You are answering a question about a document.
 
-The information you need is in the DOCUMENT CONTEXT below.
-Answer using ONLY the context. Do not use outside knowledge.
+    prompt = f"""
+You are answering a question about uploaded documents.
+
+Use ONLY the information provided in the DOCUMENT CONTEXT.
 
 DOCUMENT CONTEXT:
 {context}
@@ -64,34 +99,41 @@ QUESTION:
 {question}
 
 Instructions:
-- Read the whole context carefully before answering.
-- The answer may appear in a section with its own heading
-  (for example 'INTERNSHIP DETAILS', 'PROJECTS' or 'EDUCATION'),
-  and may not be written next to the person's name.
-- Find the relevant text and answer directly, quoting or summarizing it.
-- Only if no part of the context answers the question, say:
-  "I could not find that information in the document."
+- Answer the question using the provided document context.
+- Read the relevant content carefully before answering.
+- The answer may appear under a section heading and may not
+  be directly next to the person's name.
+- Do not use outside knowledge.
+- Do not invent information.
+- If the answer is present in the context, answer it clearly.
+- If the answer is not present in the context, say:
+  "I could not find that information in the uploaded documents."
 
 ANSWER:
 """
 
 
     # -----------------------------------
-    # 5. Send prompt to Gemini
+    # 6. Send prompt to Gemini
     # -----------------------------------
+
     response = client.models.generate_content(
         model="gemini-3.6-flash",
         contents=prompt
     )
 
 
+    # -----------------------------------
     # Debug: show Gemini response
+    # -----------------------------------
+
     print("\n--- GEMINI RESPONSE ---")
     print(response.text)
     print("--- END RESPONSE ---\n")
 
 
     # -----------------------------------
-    # 6. Return final answer
+    # 7. Return answer
     # -----------------------------------
+
     return response.text
