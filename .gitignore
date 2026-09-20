@@ -4,6 +4,9 @@ venv/
 # API keys and secrets
 .env
 
+# Personal documents
+documents/
+
 # ChromaDB local database
 chroma_db/
 

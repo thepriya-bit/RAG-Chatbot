@@ -1,6 +1,6 @@
 pypdf 
 sentence-transformers 
 chromadb 
-openai 
+google-genai 
 streamlit 
 python-dotenv 
