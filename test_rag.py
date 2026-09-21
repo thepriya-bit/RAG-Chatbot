@@ -1,7 +1,7 @@
 from rag_pipeline import answer_question
 
 
-question = "What internships has Priya completed?"
+question = "What is Priya's date of birth?"
 
 answer = answer_question(question)
 
