@@ -12,8 +12,21 @@ load_dotenv()
 
 
 client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
+    api_key=os.getenv("GEMINI_API_KEY"),
+    http_options={
+        "retry_options": {
+            "attempts": 5,
+            "http_status_codes": [408, 429, 500, 502, 503, 504],
+        }
+    },
 )
+
+
+GEMINI_MODELS = [
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+]
 
 
 def answer_question(question, chat_history=None):
@@ -116,53 +129,85 @@ ANSWER:
     # 6. Generate answer with Gemini
     # -----------------------------
 
-    try:
+    last_error = None
 
-        response = client.models.generate_content(
-            model="gemini-3.6-flash",
-            contents=prompt
-        )
+    for model_name in GEMINI_MODELS:
 
-    except errors.ClientError as e:
+        if model_name != GEMINI_MODELS[0]:
 
-        error_message = str(e)
+            print(f"--- FALLING BACK TO MODEL: {model_name} ---")
 
-        if "429" in error_message:
+        try:
 
-            return (
-                "Gemini API quota has been exceeded. "
-                "Please try again later."
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
             )
 
-        return (
-            "Gemini API returned an error. "
-            "Please try again later."
-        )
+            print("\n--- GEMINI RESPONSE ---")
+            print(f"Model: {model_name}")
+            print(response.text)
+            print("--- END RESPONSE ---\n")
 
-    except errors.ServerError:
+            return response.text
+
+        except errors.ClientError as e:
+
+            print("\n--- GEMINI CLIENT ERROR ---")
+            print(f"Model: {model_name}")
+            print(f"Code: {getattr(e, 'code', 'unknown')}")
+            print(f"Status: {getattr(e, 'status', 'unknown')}")
+            print(f"Message: {e}")
+            print("--- END GEMINI CLIENT ERROR ---\n")
+
+            if "429" in str(e):
+
+                return (
+                    "Gemini API quota has been exceeded. "
+                    "Please try again later."
+                )
+
+            last_error = e
+            continue
+
+        except errors.ServerError as e:
+
+            print("\n--- GEMINI SERVER ERROR ---")
+            print(f"Model: {model_name}")
+            print(f"Code: {getattr(e, 'code', 'unknown')}")
+            print(f"Status: {getattr(e, 'status', 'unknown')}")
+            print(f"Message: {e}")
+            print("--- END GEMINI SERVER ERROR ---\n")
+
+            last_error = e
+            continue
+
+        except Exception as e:
+
+            print("\n--- GEMINI ERROR ---")
+            print(f"Model: {model_name}")
+            print(type(e).__name__)
+            print(str(e))
+            print("--- END GEMINI ERROR ---\n")
+
+            last_error = e
+            continue
+
+    if isinstance(last_error, errors.ServerError):
 
         return (
             "Gemini is temporarily unavailable. "
             "Please try again later."
         )
 
-    except Exception as e:
-        print("\n--- GEMINI ERROR ---")
-        print(type(e).__name__)
-        print(str(e))
-        print("--- END GEMINI ERROR ---\n")
+    if isinstance(last_error, errors.ClientError):
+
         return (
-            "Something went wrong while connecting "
-            "to Gemini. Please try again later."
+            "Gemini API returned an error. "
+            "Please try again later."
         )
 
-
-    # -----------------------------
-    # 7. Return generated answer
-    # -----------------------------
-
-    print("\n--- GEMINI RESPONSE ---")
-    print(response.text)
-    print("--- END RESPONSE ---\n")
-
-    return response.text
+    return (
+        "Something went wrong while connecting "
+        "to Gemini. Please try again later."
+    )

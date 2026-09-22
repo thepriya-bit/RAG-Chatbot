@@ -26,6 +26,10 @@ if "document_hashes" not in st.session_state:
     st.session_state.document_hashes = set()
 
 
+if "processed_hashes" not in st.session_state:
+    st.session_state.processed_hashes = set()
+
+
 if "just_cleared" not in st.session_state:
     st.session_state.just_cleared = False
 
@@ -41,6 +45,8 @@ if "uploader_key" not in st.session_state:
 if st.button("🗑️ Clear All Documents"):
     clear_collection()
     st.session_state.document_hashes = set()
+
+    st.session_state.processed_hashes = set()
 
     st.session_state.messages = []
 
@@ -89,10 +95,7 @@ if uploaded_files and not st.session_state.just_cleared:
             # Check if already uploaded
             # --------------------------------
 
-        if (
-            file_hash in
-            st.session_state.document_hashes
-        ):
+        if file_hash in st.session_state.processed_hashes:
             continue
 
 
@@ -108,6 +111,10 @@ if uploaded_files and not st.session_state.just_cleared:
             )
 
             st.session_state.document_hashes.add(
+                file_hash
+            )
+
+            st.session_state.processed_hashes.add(
                 file_hash
             )
 
@@ -138,19 +145,24 @@ if uploaded_files and not st.session_state.just_cleared:
             # --------------------------------
             # Create chunks
             # --------------------------------
-
-        chunks = chunk_text(
-            text
-        )
-
-
-            # --------------------------------
-            # Create embeddings
-            # --------------------------------
-
-        embeddings = create_embeddings(
-            chunks
-        )
+        chunks = chunk_text(text)
+        print("FILE:", uploaded_file.name)
+        print("EXTRACTED TEXT LENGTH:", len(text))
+        print("NUMBER OF CHUNKS:", len(chunks))
+        print("CHUNKS:", chunks[:2])
+        if not chunks:
+            st.error(
+                f"❌ No text could be extracted from {uploaded_file.name}."
+            )
+            continue
+        embeddings = create_embeddings(chunks)
+        print("NUMBER OF EMBEDDINGS:", len(embeddings))
+        if len(embeddings) == 0:
+            st.error(
+                f"❌ Failed to create embeddings for {uploaded_file.name}."
+            )
+            continue
+        
 
 
             # --------------------------------
@@ -170,6 +182,10 @@ if uploaded_files and not st.session_state.just_cleared:
             # --------------------------------
 
         st.session_state.document_hashes.add(
+            file_hash
+        )
+
+        st.session_state.processed_hashes.add(
             file_hash
         )
 
@@ -264,7 +280,7 @@ if question:
         }
     )
 
-    st.session_state.messages.append(\
+    st.session_state.messages.append(
 
         {
             "role": "assistant",
