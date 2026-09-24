@@ -1,18 +1,15 @@
-import os
-
-from dotenv import load_dotenv
+import streamlit as st
 from google import genai
+
 from google.genai import errors
 
 from embeddings import create_embeddings
 from vector_store import search_documents
 
 
-load_dotenv()
-
 
 client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY"),
+    api_key=st.secrets["GEMINI_API_KEY"],
     http_options={
         "retry_options": {
             "attempts": 5,
